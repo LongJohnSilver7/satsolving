@@ -24,7 +24,7 @@ class Parser:
         linegenerator = self._g_pop(lines)
         self._parselines(linegenerator)
 
-
+       
     
     '''
     returns list linewise
@@ -78,35 +78,53 @@ class Parser:
 
 
         # create number of neccessary propositions
-        self.propositions = [self.Proposition() for p in range(self.proposition_count)]
+        self.propositions = [self.Proposition(str(ind)) for ind,p in enumerate(range(self.proposition_count), 0)]
+        
 
         # create useable clause objects for each clause we parsed from the cnf file
         self.clauses = [self.cnf_to_clause(self.propositions, c_as_str) for c_as_str in self.clauses_as_str]
+        #collection = []
+        #for c_as_str in self.clauses_as_str:
+
+        #    collection.append(Parser.cnf_to_clause(self, self.propositions, c_as_str))
         
+        #print(f'collection is this: {collection}')
     
     def _get_number_list_from_string(self, string_containing_numbers):
         return re.findall(r'[-]?\d+', string_containing_numbers)
 
     # creates a clause, mapping the corresponding propositions onto it    
     def cnf_to_clause(self, proposition_list, clause_as_string):
+        print('starting function to sort the propositions in neg and pos lists')
         l_propositions = self._get_number_list_from_string(clause_as_string)
-        resulting_clause = self.Clause()
+        print(l_propositions)
+        
+        resulting_clause = Parser.Clause()
+        print('these should be empty')
+        print(resulting_clause.neg_propositions)
+        print(resulting_clause.pos_propositions)
         for p in l_propositions:
+            print(int(p))
             # iterating over every proposition
             if int(p) < 0:
                 # proposition is negated:
+                print('prop is put in negative list')
                 resulting_clause.add_neg_prop(proposition_list[abs(int(p))-1])
             if int(p) > 0:
                 # proposition is not negated
                 resulting_clause.add_pos_prop(proposition_list[int(p)-1])   
         
+        print(resulting_clause.neg_propositions)
+        print(resulting_clause.pos_propositions)
+        print('clause should function at this point')
         return resulting_clause
 
     class Clause:
-        pos_propositions = []
-        neg_propositions = []
-        propositions = []
+
         def __init__(self, *args):
+            self.pos_propositions = []
+            self.neg_propositions = []
+            self.propositions = []
             for proposition in args:
                 self.propositions.append(proposition)
         
@@ -121,11 +139,43 @@ class Parser:
 
     class Proposition:
         value = None
-        def __init__(self):
+        assigned = False
+        value_not_flippable = False
+        identifier = None
+        def __init__(self, identifier=None):
             self.value = None
+            self.assigned = False
+            self.value_not_flippable = False
+            if identifier is not None:
+                self.identifier = identifier
 
-        def assign(self, value):
+        def assign(self, value, b=False):
             self.value = value
+            self.assigned = True
+            self.value_not_flippable = b
+        
+        def unassign(self):
+            self.value = None
+            self.assigned = False
+            self.value_not_flippable = False
+       
+        def set_flippable(self, b):
+            self.value_not_flippable = not b
+
+        def is_flippable(self):
+            return not self.value_not_flippable
+        
+        def flip(self, b=False):
+            if self.assigned == True:
+                if self.value == 0:
+                    self.value = 1
+                    return
+                if self.value == 1:
+                    self.value = 0
+                    return
+
+
+
 
     
 
@@ -135,12 +185,9 @@ class Parser:
 
 
 if __name__ == "__main__":
-    cnf = Parser(os.path.abspath('pigeon_hole_6.cnf'))
+    cnf = Parser(os.path.abspath('test.cnf'))
 
     # cleanly obtain a list of propositions, that we can assign
     propositions = cnf.propositions
     # cleanly obtain a list of clause objects, where each clause reacts to an assignment we make for our propositions
     clauses = cnf.clauses
-
-    print(cnf.propositions)
-    print(cnf.clauses)
