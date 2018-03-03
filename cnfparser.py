@@ -1,6 +1,6 @@
 import os
 import re
-
+from enum import Enum
 class Parser:
     comments = []
     problem = []
@@ -12,7 +12,6 @@ class Parser:
     proposition_count = None
     clause_count = None
 
-# WARNING multiline ending with 10 do not work
 
 
     def __init__(self,filepath):
@@ -106,20 +105,77 @@ class Parser:
         resulting_clause.propositions =  resulting_clause.pos_propositions + resulting_clause.neg_propositions
         return resulting_clause
 
+    class CLAUSESTATE(Enum):
+        SATISFIED = 1
+        UNSATISFIED = 2
+        UNRESOLVED = 3
+        UNIT = 4
+
+
+    '''
+    Careful: missing_proposition just points to any unassigned proposition. Always check state for unit, when checking for unit
+    '''
     class Clause:
 
         def __init__(self, *args):
             self.pos_propositions = []
             self.neg_propositions = []
             self.propositions = []
+            self.state = Parser.CLAUSESTATE.UNRESOLVED
+            self.missing_proposition = None
+
             for proposition in args:
                 self.propositions.append(proposition)
+            self._calculate_state()
         
         def add_neg_prop(self, prop):
             self.neg_propositions.append(prop)
+            self._calculate_state
         
         def add_pos_prop(self, prop):
             self.pos_propositions.append(prop)
+            self._calculate_state()
+
+        def _calculate_state(self):
+            if not self.neg_propositions and not self.pos_propositions:
+                return
+
+            found_unassigned = False
+            for prop in self.neg_propositions:
+                if prop.value == 0:
+                    self.state = Parser.CLAUSESTATE.SATISFIED
+                    return
+                elif prop.assigned == False:
+                    if found_unassigned == False:
+                        found_unassigned = True
+                        self.missing_proposition = prop
+                    else:
+                        self.state = Parser.CLAUSESTATE.UNRESOLVED
+                        return
+
+            for prop in self.pos_propositions:
+                if prop.value == 1:
+                    self.state = Parser.CLAUSESTATE.SATISFIED
+                    return
+                elif prop.assigned == False:
+                    if found_unassigned == False:
+                        found_unassigned = True
+                        self.missing_proposition = prop
+                    else:
+                        self.state = Parser.CLAUSESTATE.UNRESOLVED
+                        return
+            # we reached here. So we either found one unassigned proposition or the clause is unsatisfied
+            if found_unassigned == True:
+                self.state = Parser.CLAUSESTATE.UNIT
+            else:
+
+                self.state = Parser.CLAUSESTATE.UNSATISFIED
+
+            
+
+
+
+
         
         #self.pos_propositions.append()
             
@@ -178,3 +234,4 @@ if __name__ == "__main__":
     propositions = cnf.propositions
     # cleanly obtain a list of clause objects, where each clause reacts to an assignment we make for our propositions
     clauses = cnf.clauses
+    print('done')
