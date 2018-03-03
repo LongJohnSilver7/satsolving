@@ -118,59 +118,81 @@ class Parser:
     class Clause:
 
         def __init__(self, *args):
+            self.proposition_count = 0
             self.pos_propositions = []
             self.neg_propositions = []
             self.propositions = []
             self.state = Parser.CLAUSESTATE.UNRESOLVED
             self.missing_proposition = None
+            self.implied_unitvalue = None
+            self.flag = False
 
             for proposition in args:
                 self.propositions.append(proposition)
+                self.proposition_count += 1
             self._calculate_state()
         
+        def set_flag(self, value):
+            self.flag = value
+
         def add_neg_prop(self, prop):
             self.neg_propositions.append(prop)
+            self.proposition_count += 1
             self._calculate_state
         
         def add_pos_prop(self, prop):
             self.pos_propositions.append(prop)
+            self.proposition_count += 1
+            self._calculate_state()
+
+        def update_state(self):
             self._calculate_state()
 
         def _calculate_state(self):
             if not self.neg_propositions and not self.pos_propositions:
                 return
-
+            print(f'state at beginning of update function: {self.state}')
             found_unassigned = False
+            #print(self.neg_propositions)
             for prop in self.neg_propositions:
                 if prop.value == 0:
                     self.state = Parser.CLAUSESTATE.SATISFIED
+                    print(f'state at end of update function: {self.state}')
                     return
                 elif prop.assigned == False:
                     if found_unassigned == False:
                         found_unassigned = True
                         self.missing_proposition = prop
+                        self.implied_unitvalue = 0
                     else:
+                        # found a second unassigned literal
                         self.state = Parser.CLAUSESTATE.UNRESOLVED
                         return
-
+ 
             for prop in self.pos_propositions:
+                #print(prop.value)
                 if prop.value == 1:
                     self.state = Parser.CLAUSESTATE.SATISFIED
+                    print(f'state at end of update function: {self.state}')
                     return
                 elif prop.assigned == False:
                     if found_unassigned == False:
                         found_unassigned = True
                         self.missing_proposition = prop
+                        self.implied_unitvalue = 1
                     else:
+                        # found a second unassigned literal
                         self.state = Parser.CLAUSESTATE.UNRESOLVED
                         return
             # we reached here. So we either found one unassigned proposition or the clause is unsatisfied
+            
             if found_unassigned == True:
                 self.state = Parser.CLAUSESTATE.UNIT
             else:
 
                 self.state = Parser.CLAUSESTATE.UNSATISFIED
 
+            print(f'state at end of update function: {self.state}')
             
 
 
@@ -185,10 +207,12 @@ class Parser:
         assigned = False
         value_not_flippable = False
         identifier = None
+
         def __init__(self, identifier=None):
             self.value = None
             self.assigned = False
             self.value_not_flippable = False
+            self.decided = False
             if identifier is not None:
                 self.identifier = identifier
 
@@ -201,6 +225,7 @@ class Parser:
             self.value = None
             self.assigned = False
             self.value_not_flippable = False
+            self.set_decided(False)
        
         def set_flippable(self, b):
             self.value_not_flippable = not b
@@ -211,11 +236,16 @@ class Parser:
         def flip(self, b=False):
             if self.assigned == True:
                 if self.value == 0:
+                    self.assigned = True
                     self.value = 1
                     return
                 if self.value == 1:
+                    self.assigned = True
                     self.value = 0
                     return
+        
+        def set_decided(self, b):
+            self.decided = b
 
 
 
