@@ -29,7 +29,6 @@ def enumeration_algorithm(clauses, proposition_list, default_value):
                 if trailstack:
                     last_assigned_proposition = trailstack.pop()
                     if last_assigned_proposition.is_flippable() == True:
-                        print(f'flipped{last_assigned_proposition}')
                         last_assigned_proposition.flip()
                         last_assigned_proposition.set_flippable(False)
                         trailstack.append(last_assigned_proposition)
@@ -50,7 +49,6 @@ class DPLL:
         self.trailstack = []
         if not self.BCP(clauses, proposition_list):
             return False
-        print('entering infinite loop')
         while True:
             if not self.decide(clauses, proposition_list):
                 return get_current_assignment(proposition_list)    
@@ -58,24 +56,18 @@ class DPLL:
                 if not self.backtrack(clauses, proposition_list):
                     return False
 
+
+
     def BCP(self, clauses, proposition_list):
         # update all states, check immediately for the state. If it is unsatisfied, return False immediately
-        #unit_clauses = []
         for clause in clauses:
-            print(clause.state)
             clause.update_state()
-            print(clause.state)
-            # push unit clauses on the trail
+            # push proposition from a unit clause on trail
             if clause.state == Parser.CLAUSESTATE.UNIT:
-                #unit_clauses.append(clause)
                 self.trailstack.append(clause.missing_proposition)
                 clause.missing_proposition.set_decided(True)
                 clause.missing_proposition.assign(clause.implied_unitvalue)
-
             elif clause.state == Parser.CLAUSESTATE.UNSATISFIED:
-                print(clause)
-
-                print(self.trailstack)
                 return False
         
         # only returns True, if there are no unsatisfied clauses
@@ -83,11 +75,14 @@ class DPLL:
 
     def decide(self,clauses, proposition_list):
         for prop in proposition_list:
-            if prop.assigned == False and prop.is_decided == False:
+            if prop.assigned == False and prop.decided == False:
                 prop.assign(self.default_value)
                 prop.set_decided(False)
                 self.trailstack.append(prop)
                 return True
+        
+        for cl in clauses:
+            cl.update_state()
         return False
     
     def backtrack(self, clauses, proposition_list):
@@ -99,5 +94,9 @@ class DPLL:
                 self.trailstack.append(prop_from_unit)
                 prop_from_unit.flip()
                 prop_from_unit.set_decided(True)
+                return True
+            else:
+                prop_from_unit.unassign()
+
                 
             

@@ -3,3 +3,9 @@ Foliensatz: 02a_sat_handout
 Folie 5: Es ist nicht erwaehnt, dass im Enumeration Algorithm diejenigen Propositionen, die ihre Wertzuweisung bereits geaendert hatten,
         wieder auf den unassigned-Stapel gelegt werden muessen
         (Konkret: Elsezweig von: if !b ... )
+
+Folie 19: in Backtrack fehlt der else zweig zu der if, welche !b prueft, die variable muss bei objektorientierter implementierung zurueckgesetzt werden
+evtl problematisch: anfaenglich gesetzte boolean constraints werden am ende auch zurueckgesetzt. Allerdings sollte an dieser Stelle sofort der Widerspruch kommen,
+da all diese propositions bereits entschieden sind
+
+Bitte erklaerung watched literals

@@ -151,13 +151,13 @@ class Parser:
         def _calculate_state(self):
             if not self.neg_propositions and not self.pos_propositions:
                 return
-            print(f'state at beginning of update function: {self.state}')
+            #print(f'state at beginning of update function: {self.state}')
             found_unassigned = False
             #print(self.neg_propositions)
             for prop in self.neg_propositions:
                 if prop.value == 0:
                     self.state = Parser.CLAUSESTATE.SATISFIED
-                    print(f'state at end of update function: {self.state}')
+                    #print(f'state at end of update function: {self.state}')
                     return
                 elif prop.assigned == False:
                     if found_unassigned == False:
@@ -173,7 +173,7 @@ class Parser:
                 #print(prop.value)
                 if prop.value == 1:
                     self.state = Parser.CLAUSESTATE.SATISFIED
-                    print(f'state at end of update function: {self.state}')
+                    #print(f'state at end of update function: {self.state}')
                     return
                 elif prop.assigned == False:
                     if found_unassigned == False:
@@ -192,7 +192,7 @@ class Parser:
 
                 self.state = Parser.CLAUSESTATE.UNSATISFIED
 
-            print(f'state at end of update function: {self.state}')
+            #print(f'state at end of update function: {self.state}')
             
 
 
