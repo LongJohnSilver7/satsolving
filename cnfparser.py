@@ -12,7 +12,7 @@ class Parser:
     proposition_count = None
     clause_count = None
 
-
+# WARNING multiline ending with 10 do not work
 
 
     def __init__(self,filepath):
@@ -52,6 +52,9 @@ class Parser:
                             if nl[0] != 'c' and nl[0] != 'p':
                                 sep = ' ' if clause[-1] != ' ' else ''
                                 clause = clause + sep + nl  
+                                # catch if a multiline is ending with x0, where x is any number
+                                if clause[-2] != ' ':
+                                    break
                             else:
                                 print(f'Error while parsing multiline-clause for clause {nl}')
                                 break
@@ -76,47 +79,31 @@ class Parser:
         except:
             print('Problem missing')
 
-
         # create number of neccessary propositions
         self.propositions = [self.Proposition(str(ind)) for ind,p in enumerate(range(self.proposition_count), 0)]
         
 
         # create useable clause objects for each clause we parsed from the cnf file
         self.clauses = [self.cnf_to_clause(self.propositions, c_as_str) for c_as_str in self.clauses_as_str]
-        #collection = []
-        #for c_as_str in self.clauses_as_str:
 
-        #    collection.append(Parser.cnf_to_clause(self, self.propositions, c_as_str))
-        
-        #print(f'collection is this: {collection}')
     
     def _get_number_list_from_string(self, string_containing_numbers):
         return re.findall(r'[-]?\d+', string_containing_numbers)
 
     # creates a clause, mapping the corresponding propositions onto it    
     def cnf_to_clause(self, proposition_list, clause_as_string):
-        print('starting function to sort the propositions in neg and pos lists')
         l_propositions = self._get_number_list_from_string(clause_as_string)
-        print(l_propositions)
-        
         resulting_clause = Parser.Clause()
-        print('these should be empty')
-        print(resulting_clause.neg_propositions)
-        print(resulting_clause.pos_propositions)
+
         for p in l_propositions:
-            print(int(p))
             # iterating over every proposition
             if int(p) < 0:
                 # proposition is negated:
-                print('prop is put in negative list')
                 resulting_clause.add_neg_prop(proposition_list[abs(int(p))-1])
             if int(p) > 0:
                 # proposition is not negated
                 resulting_clause.add_pos_prop(proposition_list[int(p)-1])   
-        
-        print(resulting_clause.neg_propositions)
-        print(resulting_clause.pos_propositions)
-        print('clause should function at this point')
+        resulting_clause.propositions =  resulting_clause.pos_propositions + resulting_clause.neg_propositions
         return resulting_clause
 
     class Clause:
