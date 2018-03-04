@@ -115,12 +115,13 @@ class DPLL:
         def __init__(self, default_value):
             self.default_value = default_value
             self.decisionlevel = 0    
+            self.nodes_on_level = {'0': []}
             self.vertices = []
             # holds tuples with format: starting_node, target_node, clause_label
             self.edges = []
             self.last_assigned_prop = None
-            self.conflicting_clause = None
-            self.asserting_clauses = None
+            self.conflicting_clauses = []
+            self.asserting_clauses = []
             self.last_decision = None
         
         def cdcl_algorithm(self, clauses, proposition_list):
@@ -134,11 +135,55 @@ class DPLL:
                         return False   
 
         def resolve_conflict(self, clauses, proposition_list):
-            pass
+            if self.decisionlevel == 0:
+                return False
+
+            self.update_asserting_clauses()
+
+            # we want to reverse our last decision, because that decision created implications leading to current conflict
+            for node in self.nodes_on_level[str(self.decisionlevel)]:
+                #print(node)
+                # also reset antecedent, since we solve exactly that conflict
+                node.unassign(True)
+                self.vertices.remove(node)
+
+            for e in self.edges:
+                if e[1] in self.nodes_on_level[str(self.decisionlevel)]:
+                    self.edges.remove(e)
+
+            self.nodes_on_level[str(self.decisionlevel)] = []
+            self.decisionlevel -= 1
+
+            # now create new clauses from asserting clauses and add those to our clause pool
+            f
+            
+            return True
 
         def update_asserting_clauses(self):
-            for cl in clauses:
-                pass
+            # with current implementation, only one conflicting clause should exist at every point in time
+            for cl in self.conflicting_clauses:
+                nodes_in_clause = 0
+                # all nodes on current level
+                for n in self.nodes_on_level[str(self.decisionlevel)]:
+                    if n in cl.neg_propositions:
+                        nodes_in_clause += 1
+                      
+                      # todo: create new clauses and add them to our pool
+                       # new_clause = 
+                
+                if nodes_in_clause ==1:
+                    self.asserting_clauses.append(cl)
+                    continue
+                else:
+                    for n in self.nodes_on_level[str(self.decisionlevel)]:
+                        if n in cl.pos_propositions:
+                            nodes_in_clause +=1
+                if nodes_in_clause > 0:
+                    self.asserting_clauses.append(cl)
+            
+         
+                
+
 
         def label_node(self, node, value):
             if node not in self.vertices:
@@ -190,6 +235,10 @@ class DPLL:
                     # first increase decisionlevel. Like this the current decided value is always on a new level.
                 
                     self.decisionlevel += 1
+                    # create new index, and create list with prop in it.pass
+                    # in the BCP function, we will append to this list
+                    self.nodes_on_level[str(self.decisionlevel)] = [prop]
+                    self.vertices.append(prop)
                     prop.set_label((self.default_value, self.decisionlevel))
                     self.last_decision = prop
                     return True
@@ -215,6 +264,9 @@ class DPLL:
                         
                         # instantly add the correct label for node
                         self.label_node(clause.missing_proposition, clause.implied_unitvalue )
+
+                    
+                        self.nodes_on_level[str(self.decisionlevel)].append(clause.missing_proposition)
                         # do not add to assigned vertices list yet, we will do this in the update edge function
                         # self.vertices.append(clause.missing_proposition)
                         # add to the set of assignments for one iteration over the clauses
@@ -222,7 +274,7 @@ class DPLL:
                         set_of_new_unit_clauses.append(clause)
 
                     elif clause.state == Parser.CLAUSESTATE.UNSATISFIED:
-                        self.conflicting_clause = clause
+                        self.conflicting_clauses.append(clause)
                         return False
                 
                 self.update_edges(set_of_new_assignments, set_of_new_unit_clauses)

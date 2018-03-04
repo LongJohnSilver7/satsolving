@@ -150,6 +150,7 @@ class Parser:
         def update_state(self):
             self._calculate_state()
 
+
         def _calculate_state(self):
             if not self.neg_propositions and not self.pos_propositions:
                 return
@@ -250,7 +251,7 @@ class Parser:
         def is_flippable(self):
             return not self.value_not_flippable
 
-        def remove_from_antecedent(self, clause):
+        def remove_antecedent(self, clause):
             try:
                 self.antecedent.remove(clause)
             except:
