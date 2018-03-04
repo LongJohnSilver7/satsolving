@@ -6,8 +6,8 @@ class Parser:
     problem = []
     clauses_as_str = []
     numberoflines = 0
-    clauses = []
-    propositions = []
+    #clauses = []
+    #propositions = []
 
     proposition_count = None
     clause_count = None
@@ -71,7 +71,7 @@ class Parser:
                 continue
         
         # get the number of clauses parsed by this unit. If it differs from the expected value, everything is over :(
-        self.clause_count = len(self.clauses)
+
         problem_parsed = self._get_number_list_from_string(self.problem[0])
         try:
             self.proposition_count = int(problem_parsed[0])
@@ -84,6 +84,8 @@ class Parser:
 
         # create useable clause objects for each clause we parsed from the cnf file
         self.clauses = [self.cnf_to_clause(self.propositions, c_as_str) for c_as_str in self.clauses_as_str]
+        
+        self.clause_count = len(self.clauses)
 
     
     def _get_number_list_from_string(self, string_containing_numbers):
@@ -153,6 +155,7 @@ class Parser:
                 return
             #print(f'state at beginning of update function: {self.state}')
             found_unassigned = False
+
             #print(self.neg_propositions)
             for prop in self.neg_propositions:
                 if prop.value == 0:
@@ -188,6 +191,8 @@ class Parser:
             
             if found_unassigned == True:
                 self.state = Parser.CLAUSESTATE.UNIT
+                # code the antecedent, maybe not so clean, because classes interact with each other in the background
+                self.missing_proposition.antecedent.append(self)
             else:
 
                 self.state = Parser.CLAUSESTATE.UNSATISFIED
@@ -203,36 +208,54 @@ class Parser:
             
 
     class Proposition:
-        value = None
-        assigned = False
-        value_not_flippable = False
-        identifier = None
+        #value = None
+        #assigned = False
+        #value_not_flippable = False
+        #identifier = None
 
         def __init__(self, identifier=None):
             self.value = None
             self.assigned = False
             self.value_not_flippable = False
             self.decided = False
+            self.antecedent = []
+            self.label = None
             if identifier is not None:
                 self.identifier = identifier
 
-        def assign(self, value, b=False):
+        def set_label(self, label):
+            self.label = label
+
+        def remove_label(self, value, decisionlevel):
+            self.label = None
+
+        def assign(self, value, b=False, antecedent_reset = False):
             self.value = value
             self.assigned = True
             self.value_not_flippable = b
+            if antecedent_reset == True:
+                self.antecedent = []
         
-        def unassign(self):
+        def unassign(self, antecedent_reset = False):
             self.value = None
             self.assigned = False
             self.value_not_flippable = False
             self.set_decided(False)
+            if antecedent_reset == True:
+                self.antecedent = []
        
         def set_flippable(self, b):
             self.value_not_flippable = not b
 
         def is_flippable(self):
             return not self.value_not_flippable
-        
+
+        def remove_from_antecedent(self, clause):
+            try:
+                self.antecedent.remove(clause)
+            except:
+                pass
+
         def flip(self, b=False):
             if self.assigned == True:
                 if self.value == 0:
