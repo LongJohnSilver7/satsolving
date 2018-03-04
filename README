@@ -1,0 +1,6 @@
+start checks in checking.py
+
+Available algorithms:
+
+dpll_backtracking 
+dpll_implicationgraph (probably not working yet)
