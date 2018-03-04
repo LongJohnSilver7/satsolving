@@ -155,7 +155,7 @@ class DPLL:
             self.decisionlevel -= 1
 
             # now create new clauses from asserting clauses and add those to our clause pool
-            f
+            
             
             return True
 
