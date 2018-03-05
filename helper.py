@@ -1,4 +1,6 @@
 from cnfparser import Parser
+import threading
+
 
 def evaluate_clause(clause):
     negs = [i.value for i in clause.neg_propositions ]
@@ -56,3 +58,17 @@ def prop_occurencetype_in_clause(clause, prop):
         res.append(0)
     # returns (pos_occurences, neg_occurences)
     return res
+
+class ID_GEN():    
+    def __init__(self):
+        self.id = -1
+    
+    def uniqueID(self):
+        while True:
+            self.id += 1
+            #threading.lock.acquire(blocking = True)
+            #threading.lock.release()
+            yield self.id
+
+
+    

@@ -1,6 +1,7 @@
 from cnfparser import Parser
-from helper import evaluate_clause, get_current_assignment, clause_to_dict, prop_occurencetype_in_clause
+from helper import evaluate_clause, get_current_assignment, clause_to_dict, prop_occurencetype_in_clause, ID_GEN
 import os
+import time
 #from implicationgraph import Implicationgraph
 
 def enumeration_algorithm(clauses, proposition_list, default_value):
@@ -40,50 +41,162 @@ def enumeration_algorithm(clauses, proposition_list, default_value):
                 else:
                     return False
 
+class WATCHLIST:
+
+    def __init__(self, clauses, idgen, watch_heuristic = None):
+        # create a list of unique id's for each clause
+        self.idgen = idgen
+        self.watchlist = {}
+        self.heuristic = watch_heuristic
+
+
+        if self.heuristic is None:
+            # no elaborate heuristic: take first two propositions
+            print('Using standard watchlistheuristic')
+            self.heuristic = self.default_heuristic
+
+        for cl in clauses:
+            # generate and set new id for clause
+            clauseid = str(next(self.idgen.uniqueID()))
+            cl.set_id(clauseid)
+            
+            # set watches for clause
+            if clauseid in self.watchlist:
+                self.watchlist[clauseid].append(self.heuristic(cl))
+                
+            else:
+                self.watchlist[clauseid] = self.heuristic(cl) 
+                # connect clauses current watches with our watchlist:
+                cl.current_watches = self.watchlist[clauseid]
+
+
+
+    def default_heuristic(self,clause):
+        reslist = []
+        for prop in clause.propositions:
+            # greedily add unassigned literals
+            if prop.assigned == False:
+                reslist.append(prop)
+            if len(reslist)==2:
+                break
+
+        return reslist
+        
+
+    # in case we create a new clause, append it to our watchlist
+    def append_clause(self, clause):
+
+        if clause.id is not None:
+            if clause.id in self.watchlist:
+                if self.watchlist[clause.id] != []:
+                    print(f'clause already has a nonempty watchlist')
+                else:
+                    self.watchlist[clause.id].append(self.heuristic(clause))
+            else:
+                clauseid = str(next(self.idgen.uniqueID()))
+                cl.set_id(clauseid)
+                self.watchlist[clause.id] = self.heuristic(clause)
+        else:
+           # generate and set new id for clause
+            clauseid = str(next(self.idgen.uniqueID()))
+            cl.set_id(clauseid)
+            # set watches for clause
+            self.watchlist[clauseid] = self.heuristic(clause) 
+
+        
+
+
 # davis-putnam-logemann-loveland algorithms
 class DPLL:
 
 
-    def __init__(self, default_value):
+    def __init__(self):
         pass
 
 
     class Backtracking:
         
-        def __init__(self, default_value):
+        def __init__(self, default_value, clauses, propositions, idgen, wl_algorithm=None):
             self.default_value = default_value
             self.trailstack = []
-        
-        def dpll_algorithm(self, clauses, proposition_list):
+            self.clauses = clauses
+            self.proposition_list = propositions
+            self.idgen = idgen
+            self.unitclauses = []
+            self.last_set_literal = None
+
+    
+            self.watchlist = WATCHLIST(clauses, idgen, wl_algorithm)
+            self.use_watchlist = False
+            #print('Complete watchlist:')
+            #print(self.watchlist.watchlist)
+
+        def dpll_algorithm(self, use_watchlist = False):
+            if use_watchlist == True:
+                self.use_watchlist = True
+            
             self.trailstack = []
-            if not self.BCP(clauses, proposition_list):
+            if not self.BCP(self.clauses, self.proposition_list):
                 return False
             while True:
-                if not self.decide(clauses, proposition_list):
-                    return get_current_assignment(proposition_list)    
-                while not self.BCP(clauses, proposition_list):
-                    if not self.backtrack(clauses, proposition_list):
+                if not self.decide(self.clauses, self.proposition_list):
+                    return get_current_assignment(self.proposition_list)    
+                while not self.BCP(self.clauses, self.proposition_list):
+                    if not self.backtrack(self.clauses, self.proposition_list):
                         return False
 
         def BCP(self, clauses, proposition_list):
+            
+            
             # update all states, check immediately for the state. If it is unsatisfied, return False immediately
-       
-            while True:
-                found_something = False
-                for clause in clauses:
-                    clause.update_state()
+
+            print('=================================================================================')
+            # this is ugly... will be called for every BCP call, but this if is only for the first call.. fix it at some point
+            if self.last_set_literal is None:
+                aggregated_literals = []
+            else:
+                aggregated_literals = [self.last_set_literal]
+            
+            #print(aggregated_literals)
+            print(f'Propagating Constraints based on following assigned or implicated literals: {aggregated_literals}')
+            while len(aggregated_literals)>0:
+                
+                cur_literal = aggregated_literals.pop()
+        
+
+                # get set of clauses that might change their status
+                #print(cur_literal)
+                clause_subset = cur_literal.contained_in_clauses
+                #print(clause_subset)
+                print(f'Following classes contain the literal: {clause_subset}')
+                for clause in clause_subset:
+                    
+                    if self.use_watchlist == True:
+                        clause.update_state(self.watchlist)
+                    else:
+                        clause.update_state()
+
                     # push proposition from a unit clause on trail
                     if clause.state == Parser.CLAUSESTATE.UNIT:
                         found_something = True
                         self.trailstack.append(clause.missing_proposition)
                         clause.missing_proposition.set_decided(True)
                         clause.missing_proposition.assign(clause.implied_unitvalue)
+                        
+                        aggregated_literals.append(clause.missing_proposition)
+                        print(f'Implication for {clause.missing_proposition} by new Unit {clause}')
+
                     elif clause.state == Parser.CLAUSESTATE.UNSATISFIED:
+                        print(f'Contradiction for clause: {clause}')
+                        print(f'Current watches: {clause.current_watches}')
+                        print(f'assigned watches: {clause.assigned_watches}')
                         return False
-                if found_something == False:
-                    break
+                        
             # only returns True, if there are no unsatisfied clauses
+            print(f'No new implications, and no unsatisfied clauses for BCP.')
+           # time.sleep(10)
             return True
+
 
         def decide(self,clauses, proposition_list):
             for prop in proposition_list:
@@ -91,10 +204,17 @@ class DPLL:
                     prop.assign(self.default_value)
                     prop.set_decided(False)
                     self.trailstack.append(prop)
+                    self.last_set_literal = prop
+                    print(f'we decided {prop} with value {self.default_value}')
                     return True
             
+            # no decision was possible. At this point we update clause states once more. to get an up to date representation of our solution or the unsatisfied state
             for cl in clauses:
-                cl.update_state()
+                if self.use_watchlist == True:
+                    cl.update_state(self.watchlist)
+                else:
+                    cl.update_state()
+            
             return False
         
         def backtrack(self, clauses, proposition_list):
@@ -106,6 +226,9 @@ class DPLL:
                     self.trailstack.append(prop_from_unit)
                     prop_from_unit.flip()
                     prop_from_unit.set_decided(True)
+                    self.last_set_literal = prop_from_unit
+                    print(f'backtracked to {prop_from_unit}')
+                    print(f'Decision was changed to {prop_from_unit.value} ')
                     return True
                 else:
                     prop_from_unit.unassign()
