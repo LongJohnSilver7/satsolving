@@ -2,6 +2,7 @@ from cnfparser import Parser
 from helper import evaluate_clause, get_current_assignment, clause_to_dict, prop_occurencetype_in_clause, ID_GEN
 import os
 import time
+import decisionheuristics as dh
 #from implicationgraph import Implicationgraph
 
 def enumeration_algorithm(clauses, proposition_list, default_value):
@@ -116,7 +117,7 @@ class DPLL:
 
     class Backtracking:
         
-        def __init__(self, default_value, clauses, propositions, idgen, wl_algorithm=None):
+        def __init__(self, default_value, clauses, propositions, idgen, wl_algorithm=None, decision_algorithm = None):
             self.default_value = default_value
             self.trailstack = []
             self.clauses = clauses
@@ -125,6 +126,11 @@ class DPLL:
             self.unitclauses = []
             self.last_set_literal = None
 
+            if decision_algorithm is not None:
+                print('using special algorithm')
+                self.decision_algorithm = dh.dynamic_largest_individual_sum
+            else:
+                self.decision_algorithm = self.decide
     
             self.watchlist = WATCHLIST(clauses, idgen, wl_algorithm)
             self.use_watchlist = False
@@ -138,19 +144,24 @@ class DPLL:
             self.trailstack = []
             if not self.BCP(self.clauses, self.proposition_list):
                 return False
+
+            print('finished initial BCP here')
             while True:
-                if not self.decide(self.clauses, self.proposition_list):
+                if not self.decision_algorithm(self.clauses, self.proposition_list):
                     return get_current_assignment(self.proposition_list)    
                 while not self.BCP(self.clauses, self.proposition_list):
+                    #print('BCP returned FALSE')
                     if not self.backtrack(self.clauses, self.proposition_list):
                         return False
 
+        
+        
         def BCP(self, clauses, proposition_list):
             
             
             # update all states, check immediately for the state. If it is unsatisfied, return False immediately
 
-            print('=================================================================================')
+            print('================================================================================= New BCP call')
             # this is ugly... will be called for every BCP call, but this if is only for the first call.. fix it at some point
             if self.last_set_literal is None:
                 aggregated_literals = []
@@ -160,7 +171,9 @@ class DPLL:
             #print(aggregated_literals)
             print(f'Propagating Constraints based on following assigned or implicated literals: {aggregated_literals}')
             while len(aggregated_literals)>0:
-                
+                #print('')
+                #print(f'ACCUMULATION: {int(n.identifier)+1 for n in aggregated_literals}')
+                #print('')
                 cur_literal = aggregated_literals.pop()
         
 
@@ -168,33 +181,37 @@ class DPLL:
                 #print(cur_literal)
                 clause_subset = cur_literal.contained_in_clauses
                 #print(clause_subset)
-                print(f'Following classes contain the literal: {clause_subset}')
+                #print(f'Following classes contain the literal: {clause_subset}')
                 for clause in clause_subset:
                     
                     if self.use_watchlist == True:
                         clause.update_state(self.watchlist)
                     else:
                         clause.update_state()
-
+                    print(f'CLAUSE {int(clause.id)+1} HAS ___{clause.state}___')
                     # push proposition from a unit clause on trail
                     if clause.state == Parser.CLAUSESTATE.UNIT:
-                        found_something = True
                         self.trailstack.append(clause.missing_proposition)
                         clause.missing_proposition.set_decided(True)
                         clause.missing_proposition.assign(clause.implied_unitvalue)
-                        
-                        aggregated_literals.append(clause.missing_proposition)
-                        print(f'Implication for {clause.missing_proposition} by new Unit {clause}')
-
+                        if clause.missing_proposition not in aggregated_literals:
+                            aggregated_literals.append(clause.missing_proposition)
+                            print(f'Implication for Literal {int(clause.missing_proposition.identifier)+1} by Clause {int(clause.id)+1}. Implied value: {clause.implied_unitvalue}')
+                        else:
+                            print('implication already found')
                     elif clause.state == Parser.CLAUSESTATE.UNSATISFIED:
-                        print(f'Contradiction for clause: {clause}')
-                        print(f'Current watches: {clause.current_watches}')
-                        print(f'assigned watches: {clause.assigned_watches}')
+                        print(f'Contradiction for clause: {clause.id}')
+                        #print(f'Current watches: {clause.current_watches}')
+                        
+                       #print(f'assigned watches: {clause.assigned_watches}')
                         return False
+                    elif clause.state == Parser.CLAUSESTATE.SATISFIED:
+                        print(f'Ignore clause. Reason: SATISFIED')
                         
             # only returns True, if there are no unsatisfied clauses
             print(f'No new implications, and no unsatisfied clauses for BCP.')
-           # time.sleep(10)
+            # time.sleep(10)
+            #print(self.watchlist)
             return True
 
 
@@ -205,7 +222,7 @@ class DPLL:
                     prop.set_decided(False)
                     self.trailstack.append(prop)
                     self.last_set_literal = prop
-                    print(f'we decided {prop} with value {self.default_value}')
+                    print(f'Decision: {int(prop.identifier)+1} with value {self.default_value}')
                     return True
             
             # no decision was possible. At this point we update clause states once more. to get an up to date representation of our solution or the unsatisfied state
@@ -221,16 +238,19 @@ class DPLL:
             while True:
                 if not self.trailstack:
                     return False
+
                 prop_from_unit = self.trailstack.pop()
                 if not prop_from_unit.decided:
+                    
                     self.trailstack.append(prop_from_unit)
                     prop_from_unit.flip()
                     prop_from_unit.set_decided(True)
                     self.last_set_literal = prop_from_unit
-                    print(f'backtracked to {prop_from_unit}')
-                    print(f'Decision was changed to {prop_from_unit.value} ')
+                    print(f'Backtracked to {int(prop_from_unit.identifier)+1}. Decision changed to {prop_from_unit.value} ')
+                
                     return True
                 else:
+                    print(f'////// UNASSIGN: {int(prop_from_unit.identifier)+1}')
                     prop_from_unit.unassign()
 
     class Implicationgraph:

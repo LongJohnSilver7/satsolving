@@ -144,6 +144,8 @@ class Parser:
             self.flag = False
             self.current_watches = []
             self.assigned_watches = []
+            self.watches_at_last_decision = []
+    
 
             #for proposition in args:
                 #self.propositions.append(proposition)
@@ -207,114 +209,121 @@ class Parser:
         
         def update_state(self, watchlist = None):
             self._calculate_state(watchlist)
+        
+        def _check_satisfied(self):
+            for p in self.pos_propositions:
+                #print(p.value)
+                if p.value == 1:
+                    return True
+            
+            for p in self.neg_propositions:
+                if p.value == 0:
+                    return True
+            
+            return False
+        def _fill_watches(self):
+            #print('filling watches')
+            for lit in self.propositions:
+                if len(self.current_watches)==2:
+                    return
+                if lit.assigned == False:
+                    if lit not in self.current_watches:
+                        self.current_watches.append(lit)
 
         def _calculate_state(self, watchlist = None):
             if watchlist is None:
                 self._calculate_state_nowl()
                 return
+            #print('watches before filling:')
+            #print(self.current_watches)
+            # obtain new watches
+            #print('FILLING WATCHES')
+            self._fill_watches()
+            # find newly assigned watches since last update, save old ones
+            previous_watches = self.current_watches[:]
+            print(f'Update Clause: {int(self.id)+1}')
+            #print(f'Propositions: {n.identifier for n in self.propositions}')
+            #print(f'Previous Watches: {previous_watches}')
             
-            # we are using a watchlist, which means we only check literals in the given watchlist
-            watches = watchlist.watchlist[self.id]
-            counter_watches = len(watches)
-            found_assigned = 0
+            b_satisfied = False
+            #print(f'neg prop: {self.neg_propositions}')
+            #print(f'pos prop: {self.pos_propositions}')
             
-            if counter_watches == 0:
-                print('error, no watches for this clause')
+            for prev in self.current_watches:
+               # print(f'item: {prev}')
+               # print(f'value: {prev.value}')
+              #  print(f'assigned: {prev.assigned}')
+
+                if prev.value == 0:
+                    if prev in self.neg_propositions:
+                      #  print('found sat in neg list')
+                        b_satisfied = True
+                elif prev.value == 1: 
+                    if prev in self.pos_propositions:
+                      #  print('found sat in pos list')
+                        b_satisfied = True
+
+            #if previous watch assignement made clause satisfied, return immediately
+            if b_satisfied == True:
+                print('SATISFIED')
+                self.state = Parser.CLAUSESTATE.SATISFIED
                 return
 
-            # trick: we know literal that was decided and forced this function call is in this clause, so we only need to check neg or pos literal list to check for satisfied
-            # if we do not hit it, in the correct list, we still obtain information about it
-            # while iterating over this: remember a possible literal that we can add to our watchlist
-
-         
-            unassigned_literal = None
-            unassigned_literal_neg = None
-            unassigned_literal_pos = None
-            print(f'-------------------------------------------------------------------')
-            print(f'Start iterating over watchlist for clause {self}')
-            print(f'Clause contains propositions: {self.propositions}')
-            print(f'Clause contains watches: {self.current_watches}')
-            for ind_outer, watch in enumerate(watches):
-                print(f'########## Checking watch: {watch}')
-                indicator_clause_true = False
-
-                # remember one unassigned literal, if there was one
- 
+            self.assigned_watches = []
+            for watch in self.current_watches:
                 if watch.assigned == True:
-                    print(f'Found an assigned watch while checking watches: {watch}. Value is: {watch.value}')
-                    print(self.propositions)
-                    # we reach here, if we assigned a watch. Note: Only one watch can be assigned per call of this function
-                    # kind of useless probably. Only adds literals that were watches. Well whatever, maybe it becomes useful later on
                     self.assigned_watches.append(watch)
-                    #print(f'current lit value: {literal.value}')
-                    if watch.value == 0:
-                        for ind, neg_lit in enumerate(self.neg_propositions):
-                            if neg_lit == watch:
-                                print('check2')
-                                print(f'removing watch: {neg_lit}')
-                                print(f'from: {self.current_watches}')
-                                del watchlist.watchlist[self.id][ind_outer]
-                                print(f'result: {watchlist.watchlist[self.id]}')
-                                print(f'{self.current_watches}')
-                                self.state = Parser.CLAUSESTATE.SATISFIED
-                                indicator_clause_true == True
-                                return
+            
+            # remove newly assigned watches from watchlist
+            for watch in self.assigned_watches:
+                self.current_watches.remove(watch)
 
-                    elif watch.value == 1:
-                        for ind, pos_lit in enumerate(self.pos_propositions):
-                            if pos_lit == watch:
-                                print(f'check {ind_outer}')
-                                print(f'removing watch: {pos_lit}')
-                                print(f'from: {self.current_watches}')
-                                del watchlist.watchlist[self.id][ind_outer]
-                                print(f'result: {watchlist.watchlist[self.id]}')
-                                print(f'{self.current_watches}')
-                                self.state = Parser.CLAUSESTATE.SATISFIED
-                                indicator_clause_true == True
-                                return
-
-                    
-                    if indicator_clause_true == False:   
-                        print(f'Clause was not satisfied by watch. Remove watch with index {ind_outer} from Watchlist. Other watch is guaranteed to still be unassigned')
-                        print(f'Propositions in this clause are: {self.propositions}')
-                        print(self.current_watches)
-                        print(ind_outer)
-                        del watchlist.watchlist[self.id][ind_outer]
-                        #print(self.current_watches)
-                        #del self.current_watches[ind]
-         
-                    
-                        # we did not get a satisfied clause from the assignment of our watch, so the clause is still 
-                        # unresolved, a unit, or there was only one watch to begin with
-                        new_watch = self._search_watch(watchlist.watchlist[self.id])
-                        print(f'Searching a new watch yielded result: {new_watch}' )
-                        if new_watch is not None and new_watch not in watchlist.watchlist[self.id]:
-                            # append it to our watchlist
-                            watchlist.watchlist[self.id].append(new_watch)
-                        else:
-                            self.missing_proposition = new_watch
-                            if new_watch in self.pos_propositions:
-                                self.implied_unitvalue = 1
-                            else:
-                                self.implied_unitvalue = 0
-
-                        print(f'Updated Watchlist: {self.current_watches}')
-                        if len(watchlist.watchlist[self.id]) == 1:
-                            self.state = Parser.CLAUSESTATE.UNIT
-                            print(f'Only one watch and no other unassigned variable. Conclusion: UNIT')
-                      
-                            
-                        if len(watchlist.watchlist[self.id]) == 2:   
-                            # we again have 2 watches, both being unassigned 
-                            self.state = Parser.CLAUSESTATE.UNRESOLVED
-                    # found an assigned watch. No need to continue
-                    break
-                        
-
+ 
+           # obtain new watches
+            self._fill_watches()
+           # print(f'New watches: {self.current_watches}')
+            
+            watchcount = len(self.current_watches)
+            
+       
             
 
             
+            if  watchcount == 0:
+                # could have backtracked to here, and some implicated values trashed our current watches. We have to check for satisfied here
+                # this if fixable by updating the watches_at_last_decision attribute when deciding a variable.
+
+                if self._check_satisfied() == False:
+                    self.state = Parser.CLAUSESTATE.UNSATISFIED
+                    print('UNSATISFIED')
+                else:
+                    self.state = Parser.CLAUSESTATE.SATISFIED
+                    print('entered satisfied branch')
+                return
+
+            elif watchcount == 1:
+                if self._check_satisfied() == True:
+                    self.state = Parser.CLAUSESTATE.SATISFIED
+                    print('entered satisfied branch')
+                    return
+                
+                self.state = Parser.CLAUSESTATE.UNIT
+                print('UNIT')
+                #print(self.current_watches)
             
+                self.missing_proposition = self.current_watches[0]
+                print(f'missing proposition: {int(self.missing_proposition.identifier)+1}')    
+                
+                if self.missing_proposition in self.pos_propositions:
+                    self.implied_unitvalue = 1
+                else:
+                    self.implied_unitvalue = 0
+                self.missing_proposition.antecedent = self
+            elif watchcount == 2:
+                self.state = Parser.CLAUSESTATE.UNRESOLVED
+                print('UNRESOLVED')
+
+             
 
         def _calculate_state_nowl(self):
             if not self.neg_propositions and not self.pos_propositions:
